@@ -5,8 +5,8 @@
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
- * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2020 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2020 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -22,11 +22,7 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <inttypes.h>
-#include <stdio.h>
-#include <string.h>
-
-
+#include "proxy/Miner.h"
 #include "base/io/json/Json.h"
 #include "base/io/log/Log.h"
 #include "base/net/stratum/Job.h"
@@ -37,12 +33,11 @@
 #include "proxy/Counters.h"
 #include "proxy/Error.h"
 #include "proxy/Events.h"
+#include "proxy/events/AcceptEvent.h"
 #include "proxy/events/CloseEvent.h"
 #include "proxy/events/LoginEvent.h"
 #include "proxy/events/SubmitEvent.h"
-#include "proxy/Miner.h"
 #include "proxy/tls/TlsContext.h"
-#include "proxy/Uuid.h"
 #include "rapidjson/document.h"
 #include "rapidjson/error/en.h"
 #include "rapidjson/stringbuffer.h"
@@ -54,6 +49,11 @@
 #endif
 
 
+#include <cinttypes>
+#include <cstdio>
+#include <cstring>
+
+
 namespace xmrig {
     static int64_t nextId = 0;
     char Miner::m_sendBuf[2048] = { 0 };
@@ -62,25 +62,13 @@ namespace xmrig {
 
 
 xmrig::Miner::Miner(const TlsContext *ctx, uint16_t port) :
-    m_routeId(-1),
+    m_rpcId(Buffer::randomBytes(8).toHex()),
     m_id(++nextId),
-    m_loginId(0),
-    m_recvBufPos(0),
-    m_mapperId(-1),
-    m_state(WaitLoginState),
-    m_tls(nullptr),
     m_localPort(port),
-    m_customDiff(0),
-    m_diff(0),
-    m_expire(Chrono::steadyMSecs() + kLoginTimeout),
-    m_rx(0),
-    m_timestamp(Chrono::currentMSecsSinceEpoch()),
-    m_tx(0),
-    m_fixedByte(0)
+    m_expire(Chrono::currentMSecsSinceEpoch() + kLoginTimeout),
+    m_timestamp(Chrono::currentMSecsSinceEpoch())
 {
     m_key = m_storage.add(this);
-
-    Uuid::create(m_rpcId, sizeof(m_rpcId));
 
     m_socket = new uv_tcp_t;
     m_socket->data = m_storage.ptr(m_key);
@@ -213,8 +201,15 @@ bool xmrig::Miner::parseRequest(int64_t id, const char *method, const rapidjson:
                 const rapidjson::Value &value = params["algo"];
 
                 if (value.IsArray()) {
-                    for (const rapidjson::Value &algo : value.GetArray()) {
-                        algorithms.push_back(algo.GetString());
+                    algorithms.reserve(value.Size());
+
+                    for (const auto &i : value.GetArray()) {
+                        Algorithm algo(i.GetString());
+                        if (!algo.isValid()) {
+                            continue;
+                        }
+
+                        algorithms.emplace_back(algo);
                     }
                 }
             }
@@ -239,7 +234,7 @@ bool xmrig::Miner::parseRequest(int64_t id, const char *method, const rapidjson:
         heartbeat();
 
         const char *rpcId = Json::getString(params, "id");
-        if (!rpcId || strncmp(m_rpcId, rpcId, sizeof(m_rpcId)) != 0) {
+        if (!rpcId || m_rpcId != rpcId) {
             replyWithError(id, Error::toString(Error::Unauthenticated));
             return true;
         }
@@ -257,6 +252,10 @@ bool xmrig::Miner::parseRequest(int64_t id, const char *method, const rapidjson:
 
         if (event->error() == Error::NoError && m_customDiff && event->request.actualDiff() < m_diff) {
             success(id, "OK");
+
+            SubmitResult result = SubmitResult(1, m_customDiff, event->request.actualDiff(), event->request.id, 0);
+            AcceptEvent::start(m_mapperId, this, result, false, true);
+
             return true;
         }
 
@@ -314,7 +313,7 @@ bool xmrig::Miner::send(BIO *bio)
 
 void xmrig::Miner::heartbeat()
 {
-    m_expire = Chrono::steadyMSecs() + kSocketTimeout;
+    m_expire = Chrono::currentMSecsSinceEpoch() + kSocketTimeout;
 }
 
 
@@ -482,7 +481,7 @@ void xmrig::Miner::sendJob(const char *blob, const char *jobId, const char *targ
         doc.AddMember("error", kNullType, allocator);
 
         Value result(kObjectType);
-        result.AddMember("id",  StringRef(m_rpcId), allocator);
+        result.AddMember("id",  m_rpcId.toJSON(), allocator);
         result.AddMember("job", params, allocator);
 
         Value extensions(kArrayType);
@@ -566,7 +565,7 @@ void xmrig::Miner::shutdown(bool)
 }
 
 
-void xmrig::Miner::onAllocBuffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
+void xmrig::Miner::onAllocBuffer(uv_handle_t *handle, size_t, uv_buf_t *buf)
 {
     auto miner = getMiner(handle->data);
     if (!miner) {
@@ -578,7 +577,7 @@ void xmrig::Miner::onAllocBuffer(uv_handle_t *handle, size_t suggested_size, uv_
 }
 
 
-void xmrig::Miner::onRead(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
+void xmrig::Miner::onRead(uv_stream_t *stream, ssize_t nread, const uv_buf_t *)
 {
     Miner *miner = getMiner(stream->data);
     if (!miner) {

@@ -6,9 +6,11 @@ option(WITH_GOOGLE_BREAKPAD "Use Google Breakpad"     OFF)
 option(WITH_DEBUG_LOG       "Enable debug log output" OFF)
 option(WITH_HTTP            "HTTP protocol support (client/server)" ON)
 option(WITH_TLS             "Enable OpenSSL support"  ON)
+option(WITH_ENV_VARS        "Enable environment variables support in config file" ON)
 
 
 include (CheckIncludeFile)
+include (cmake/os.cmake)
 include (src/base/base.cmake)
 
 
@@ -62,7 +64,6 @@ set(HEADERS
     src/proxy/Stats.h
     src/proxy/StatsData.h
     src/proxy/TickingCounter.h
-    src/proxy/Uuid.h
     src/proxy/workers/Worker.h
     src/proxy/workers/Workers.h
     src/Summary.h
@@ -117,7 +118,6 @@ if (WIN32)
         "${SOURCES_OS}"
         res/app.rc
         src/App_win.cpp
-        src/proxy/Uuid_win.cpp
         )
 
     add_definitions(/DWIN32)
@@ -126,7 +126,6 @@ elseif (APPLE)
     set(SOURCES_OS
         "${SOURCES_OS}"
         src/App_unix.cpp
-        src/proxy/Uuid_mac.cpp
         )
 
     find_library(CFLIB CoreFoundation)
@@ -135,13 +134,12 @@ else()
     set(SOURCES_OS
         "${SOURCES_OS}"
         src/App_unix.cpp
-        src/proxy/Uuid_unix.cpp
         )
 
     if (CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
         set(EXTRA_LIBS pthread)
     else()
-        set(EXTRA_LIBS pthread uuid.a rt dl)
+        set(EXTRA_LIBS pthread rt dl)
     endif()
 endif()
 
@@ -166,54 +164,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 find_package(UV REQUIRED)
 
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
-    set(CMAKE_BUILD_TYPE Release)
-endif()
-
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 11)
-
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_definitions(/DNDEBUG)
-endif()
-
-# https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
-if (CMAKE_CXX_COMPILER_ID MATCHES GNU)
-
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-class-memaccess")
-
-    if (WIN32)
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
-    else()
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-    endif()
-
-    add_definitions(/D_GNU_SOURCE)
-
-    #set(CMAKE_C_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -gdwarf-2")
-
-    if (WITH_GOOGLE_BREAKPAD)
-        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g")
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g")
-    endif()
-
-elseif (CMAKE_CXX_COMPILER_ID MATCHES MSVC)
-
-    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT /GL")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT /GL")
-    add_definitions(/D_CRT_SECURE_NO_WARNINGS)
-    add_definitions(/D_CRT_NONSTDC_NO_WARNINGS)
-    add_definitions(/DNOMINMAX)
-
-elseif (CMAKE_CXX_COMPILER_ID MATCHES Clang)
-
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-overloaded-virtual")
-
-endif()
-
+include(cmake/flags.cmake)
 include(cmake/OpenSSL.cmake)
 
 if (WITH_GOOGLE_BREAKPAD)

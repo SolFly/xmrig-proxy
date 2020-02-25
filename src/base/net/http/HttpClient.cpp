@@ -6,8 +6,8 @@
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
  * Copyright 2014-2019 heapwolf    <https://github.com/heapwolf>
- * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2020 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2020 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@ public:
     inline static void onWrite(uv_write_t *req, int) { delete reinterpret_cast<ClientWriteBaton *>(req->data); }
 
 
-    uv_buf_t bufs[2];
+    uv_buf_t bufs[2]{};
 
 private:
     std::string m_body;
@@ -77,7 +77,7 @@ private:
 } // namespace xmrig
 
 
-xmrig::HttpClient::HttpClient(int method, const String &url, IHttpListener *listener, const char *data, size_t size) :
+xmrig::HttpClient::HttpClient(int method, const String &url, const std::weak_ptr<IHttpListener> &listener, const char *data, size_t size) :
     HttpContext(HTTP_RESPONSE, listener)
 {
     this->method = method;

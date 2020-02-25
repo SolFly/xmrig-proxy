@@ -37,11 +37,6 @@ static const char *kTls  = "tls";
 }
 
 
-xmrig::ConfigTransform::ConfigTransform()
-{
-}
-
-
 void xmrig::ConfigTransform::transform(rapidjson::Document &doc, int key, const char *arg)
 {
     BaseTransform::transform(doc, key, arg);
@@ -68,7 +63,7 @@ void xmrig::ConfigTransform::transform(rapidjson::Document &doc, int key, const 
     case IConfig::ProxyPasswordKey: /* --access-password */
         return set(doc, "access-password", arg);
 
-    case IConfig::VerboseKey: /* --verbose */
+    case IConfig::CustomDiffStatsKey: /* --custom-diff-stats */
     case IConfig::DebugKey:   /* --debug */
         return transformBoolean(doc, key, true);
 
@@ -82,6 +77,9 @@ void xmrig::ConfigTransform::transform(rapidjson::Document &doc, int key, const 
     case IConfig::CustomDiffKey: /* --custom-diff */
     case IConfig::ReuseTimeoutKey: /* --reuse-timeout */
         return transformUint64(doc, key, static_cast<uint64_t>(strtol(arg, nullptr, 10)));
+
+    case IConfig::LoginFileKey: /* --login-file */
+        return set(doc, "login-file", arg);
 
 #   ifdef XMRIG_FEATURE_TLS
     case IConfig::TlsCertKey: /* --tls-cert */
@@ -112,8 +110,8 @@ void xmrig::ConfigTransform::transform(rapidjson::Document &doc, int key, const 
 void xmrig::ConfigTransform::transformBoolean(rapidjson::Document &doc, int key, bool enable)
 {
     switch (key) {
-    case IConfig::VerboseKey: /* --verbose */
-        return set(doc, "verbose", enable);
+    case IConfig::CustomDiffStatsKey: /* --custom-diff-stats */
+            return set(doc, "custom-diff-stats", enable);
 
     case IConfig::DebugKey: /* --debug */
         return set(doc, "debug", enable);

@@ -6,12 +6,14 @@ set(HEADERS_BASE
     src/base/io/json/JsonRequest.h
     src/base/io/log/backends/ConsoleLog.h
     src/base/io/log/backends/FileLog.h
+    src/base/io/log/FileLogWriter.h
     src/base/io/log/Log.h
     src/base/io/Watcher.h
     src/base/kernel/Base.h
     src/base/kernel/config/BaseConfig.h
     src/base/kernel/config/BaseTransform.h
     src/base/kernel/Entry.h
+    src/base/kernel/Env.h
     src/base/kernel/interfaces/IBaseListener.h
     src/base/kernel/interfaces/IClient.h
     src/base/kernel/interfaces/IClientListener.h
@@ -33,13 +35,18 @@ set(HEADERS_BASE
     src/base/net/dns/Dns.h
     src/base/net/dns/DnsRecord.h
     src/base/net/http/Http.h
+    src/base/net/http/HttpListener.h
     src/base/net/stratum/BaseClient.h
     src/base/net/stratum/Client.h
     src/base/net/stratum/Job.h
+    src/base/net/stratum/NetworkState.h
     src/base/net/stratum/Pool.h
     src/base/net/stratum/Pools.h
+    src/base/net/stratum/ProxyUrl.h
+    src/base/net/stratum/Socks5.h
     src/base/net/stratum/strategies/FailoverStrategy.h
     src/base/net/stratum/strategies/SinglePoolStrategy.h
+    src/base/net/stratum/strategies/StrategyProxy.h
     src/base/net/stratum/SubmitResult.h
     src/base/net/stratum/Url.h
     src/base/net/tools/RecvBuf.h
@@ -60,12 +67,14 @@ set(SOURCES_BASE
     src/base/io/json/JsonRequest.cpp
     src/base/io/log/backends/ConsoleLog.cpp
     src/base/io/log/backends/FileLog.cpp
+    src/base/io/log/FileLogWriter.cpp
     src/base/io/log/Log.cpp
     src/base/io/Watcher.cpp
     src/base/kernel/Base.cpp
     src/base/kernel/config/BaseConfig.cpp
     src/base/kernel/config/BaseTransform.cpp
     src/base/kernel/Entry.cpp
+    src/base/kernel/Env.cpp
     src/base/kernel/Platform.cpp
     src/base/kernel/Process.cpp
     src/base/kernel/Signals.cpp
@@ -75,8 +84,11 @@ set(SOURCES_BASE
     src/base/net/stratum/BaseClient.cpp
     src/base/net/stratum/Client.cpp
     src/base/net/stratum/Job.cpp
+    src/base/net/stratum/NetworkState.cpp
     src/base/net/stratum/Pool.cpp
     src/base/net/stratum/Pools.cpp
+    src/base/net/stratum/ProxyUrl.cpp
+    src/base/net/stratum/Socks5.cpp
     src/base/net/stratum/strategies/FailoverStrategy.cpp
     src/base/net/stratum/strategies/SinglePoolStrategy.cpp
     src/base/net/stratum/Url.cpp
@@ -166,4 +178,16 @@ else()
     set(SOURCES_BASE_HTTP "")
     remove_definitions(/DXMRIG_FEATURE_HTTP)
     remove_definitions(/DXMRIG_FEATURE_API)
+endif()
+
+
+if (WITH_ENV_VARS AND CMAKE_CXX_COMPILER_ID MATCHES GNU AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
+    set(WITH_ENV_VARS OFF)
+endif()
+
+
+if (WITH_ENV_VARS)
+    add_definitions(/DXMRIG_FEATURE_ENV)
+else()
+    remove_definitions(/DXMRIG_FEATURE_ENV)
 endif()
