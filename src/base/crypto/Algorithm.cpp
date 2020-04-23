@@ -6,8 +6,8 @@
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
  * Copyright 2018      Lee Clagett <https://github.com/vtnerd>
- * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2020 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2020 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -24,10 +24,7 @@
  */
 
 
-#include "crypto/common/Algorithm.h"
-
-
-#include "crypto/cn/CnAlgo.h"
+#include "base/crypto/Algorithm.h"
 #include "rapidjson/document.h"
 
 
@@ -118,11 +115,17 @@ static AlgoName const algorithm_names[] = {
     { "RandomARQ",                 nullptr,            Algorithm::RX_ARQ          },
     { "randomx/sfx",               "rx/sfx",           Algorithm::RX_SFX          },
     { "RandomSFX",                 nullptr,            Algorithm::RX_SFX          },
+    { "randomx/keva",              "rx/keva",          Algorithm::RX_KEVA         },
+    { "RandomKEVA",                nullptr,            Algorithm::RX_KEVA         },
 #   endif
 #   ifdef XMRIG_ALGO_ARGON2
     { "argon2/chukwa",             nullptr,            Algorithm::AR2_CHUKWA      },
     { "chukwa",                    nullptr,            Algorithm::AR2_CHUKWA      },
     { "argon2/wrkz",               nullptr,            Algorithm::AR2_WRKZ        },
+#   endif
+#   ifdef XMRIG_ALGO_ASTROBWT
+    { "astrobwt",                  nullptr,            Algorithm::ASTROBWT_DERO   },
+    { "astrobwt/dero",             nullptr,            Algorithm::ASTROBWT_DERO   },
 #   endif
 };
 
@@ -148,6 +151,7 @@ size_t xmrig::Algorithm::l2() const
         return 0x40000;
 
     case RX_WOW:
+    case RX_KEVA:
         return 0x20000;
 
     case RX_ARQ:
@@ -164,15 +168,26 @@ size_t xmrig::Algorithm::l2() const
 
 size_t xmrig::Algorithm::l3() const
 {
-#   if defined(XMRIG_ALGO_RANDOMX) || defined(XMRIG_ALGO_ARGON2)
     constexpr size_t oneMiB = 0x100000;
-#   endif
 
-    const Family f = family();
+    const auto f = family();
     assert(f != UNKNOWN);
 
-    if (f < RANDOM_X) {
-        return CnAlgo<>::memory(m_id);
+    switch (f) {
+    case CN:
+        return oneMiB * 2;
+
+    case CN_LITE:
+        return oneMiB;
+
+    case CN_HEAVY:
+        return oneMiB * 4;
+
+    case CN_PICO:
+        return oneMiB / 4;
+
+    default:
+        break;
     }
 
 #   ifdef XMRIG_ALGO_RANDOMX
@@ -184,6 +199,7 @@ size_t xmrig::Algorithm::l3() const
             return oneMiB * 2;
 
         case RX_WOW:
+        case RX_KEVA:
             return oneMiB;
 
         case RX_ARQ:
@@ -210,6 +226,18 @@ size_t xmrig::Algorithm::l3() const
     }
 #   endif
 
+#   ifdef XMRIG_ALGO_ASTROBWT
+    if (f == ASTROBWT) {
+        switch (m_id) {
+        case ASTROBWT_DERO:
+            return oneMiB * 20;
+
+        default:
+            break;
+        }
+    }
+#   endif
+
     return 0;
 }
 
@@ -224,6 +252,12 @@ uint32_t xmrig::Algorithm::maxIntensity() const
 
 #   ifdef XMRIG_ALGO_ARGON2
     if (family() == ARGON2) {
+        return 1;
+    }
+#   endif
+
+#   ifdef XMRIG_ALGO_ASTROBWT
+    if (family() == ASTROBWT) {
         return 1;
     }
 #   endif
@@ -282,6 +316,7 @@ xmrig::Algorithm::Family xmrig::Algorithm::family(Id id)
     case RX_LOKI:
     case RX_ARQ:
     case RX_SFX:
+    case RX_KEVA:
         return RANDOM_X;
 #   endif
 
@@ -289,6 +324,11 @@ xmrig::Algorithm::Family xmrig::Algorithm::family(Id id)
     case AR2_CHUKWA:
     case AR2_WRKZ:
         return ARGON2;
+#   endif
+
+#   ifdef XMRIG_ALGO_ASTROBWT
+    case ASTROBWT_DERO:
+        return ASTROBWT;
 #   endif
 
     default:

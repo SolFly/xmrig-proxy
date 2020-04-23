@@ -23,47 +23,30 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef XMRIG_TLSCONTEXT_H
-#define XMRIG_TLSCONTEXT_H
+
+#include "proxy/tls/MinerTls.h"
 
 
-#include "base/tools/Object.h"
-
-
-#include <cstdint>
-
-
-using SSL_CTX = struct ssl_ctx_st;
-
-
-namespace xmrig {
-
-
-class TlsConfig;
-
-
-class TlsContext
+xmrig::Miner::Tls::Tls(SSL_CTX *ctx, Miner *miner) :
+    ServerTls(ctx),
+    m_miner(miner)
 {
-public:
-    XMRIG_DISABLE_COPY_MOVE(TlsContext)
-
-    TlsContext();
-    ~TlsContext();
-
-    bool load(const TlsConfig &config);
-
-    inline SSL_CTX *ctx() const { return m_ctx; }
-
-private:
-    bool setCiphers(const char *ciphers);
-    bool setCipherSuites(const char *ciphersuites);
-    bool setDH(const char *dhparam);
-    void setProtocols(uint32_t protocols);
-
-    SSL_CTX *m_ctx;
-};
+}
 
 
-} /* namespace xmrig */
+bool xmrig::Miner::Tls::write(BIO *bio)
+{
+    return m_miner->send(bio);
+}
 
-#endif /* XMRIG_TLSCONTEXT_H */
+
+void xmrig::Miner::Tls::parse(char *data, size_t size)
+{
+    m_miner->m_reader.parse(data, size);
+}
+
+
+void xmrig::Miner::Tls::shutdown()
+{
+    m_miner->close();
+}

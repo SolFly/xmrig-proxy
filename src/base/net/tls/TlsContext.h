@@ -5,8 +5,9 @@
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
- * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018      Lee Clagett <https://github.com/vtnerd>
+ * Copyright 2018-2020 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2020 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -22,42 +23,49 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef XMRIG_MINER_TLS_H
-#define XMRIG_MINER_TLS_H
+#ifndef XMRIG_TLSCONTEXT_H
+#define XMRIG_TLSCONTEXT_H
 
 
-#include <openssl/ssl.h>
+#include "base/tools/Object.h"
 
 
-#include "proxy/Miner.h"
+#include <cstdint>
 
 
-class xmrig::Miner::Tls
+using SSL_CTX = struct ssl_ctx_st;
+
+
+namespace xmrig {
+
+
+class TlsConfig;
+
+
+class TlsContext
 {
 public:
-    Tls(SSL_CTX *ctx, Miner *miner);
-    ~Tls();
+    XMRIG_DISABLE_COPY_MOVE(TlsContext)
 
-    bool accept();
-    bool send(const char *data, size_t size);
-    const char *fingerprint() const;
-    const char *version() const;
-    void read(const char *data, size_t size);
+    ~TlsContext();
+
+    static TlsContext *create(const TlsConfig &config);
+
+    inline SSL_CTX *ctx() const { return m_ctx; }
 
 private:
-    bool send();
-    bool verify(X509 *cert);
-    void read();
+    TlsContext() = default;
 
-    BIO *m_readBio;
-    BIO *m_writeBio;
-    bool m_ready;
-    char m_buf[1024 * 1];
-    char m_fingerprint[32 * 2 + 8];
-    Miner *m_miner;
-    SSL *m_ssl;
-    SSL_CTX *m_ctx;
+    bool load(const TlsConfig &config);
+    bool setCiphers(const char *ciphers);
+    bool setCipherSuites(const char *ciphersuites);
+    bool setDH(const char *dhparam);
+    void setProtocols(uint32_t protocols);
+
+    SSL_CTX *m_ctx = nullptr;
 };
 
 
-#endif /* XMRIG_MINER_TLS_H */
+} /* namespace xmrig */
+
+#endif /* XMRIG_TLSCONTEXT_H */

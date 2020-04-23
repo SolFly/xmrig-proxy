@@ -23,10 +23,6 @@ set(HEADERS
     src/core/config/ConfigTransform.h
     src/core/config/usage.h
     src/core/Controller.h
-    src/crypto/cn/CnAlgo.h
-    src/crypto/common/Algorithm.h
-    src/crypto/common/Coin.h
-    src/crypto/common/keccak.h
     src/donate.h
     src/net/JobResult.h
     src/net/strategies/DonateStrategy.h
@@ -77,9 +73,6 @@ set(SOURCES
     src/core/config/Config.cpp
     src/core/config/ConfigTransform.cpp
     src/core/Controller.cpp
-    src/crypto/common/Algorithm.cpp
-    src/crypto/common/Coin.cpp
-    src/crypto/common/keccak.cpp
     src/net/JobResult.cpp
     src/net/strategies/DonateStrategy.cpp
     src/proxy/BindHost.cpp
@@ -155,6 +148,7 @@ add_definitions(/DXMRIG_ALGO_CN_HEAVY)
 add_definitions(/DXMRIG_ALGO_CN_PICO)
 add_definitions(/DXMRIG_ALGO_CN_GPU)
 add_definitions(/DXMRIG_ALGO_ARGON2)
+add_definitions(/DXMRIG_ALGO_ASTROBWT)
 
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$" AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     add_definitions(/DRAPIDJSON_SSE2)
