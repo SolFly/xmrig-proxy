@@ -1,3 +1,19 @@
+# v6.3.0
+- Sync changes with the miner.
+  - Added support for upcoming Haven fork.
+  - Added tags to log records.
+  - [#1708](https://github.com/xmrig/xmrig/issues/1708) Added `title` option.
+  - [#1728](https://github.com/xmrig/xmrig/issues/1728) Fixed, 32 bit Windows builds was crash on start.
+
+# v5.11.0
+- Added new algorithm `cn/ccx` for Conceal.
+- Removed previously deprecated `cn/gpu` algorithm.
+
+# v5.10.2
+- [#1664](https://github.com/xmrig/xmrig/pull/1664) Improved JSON config error reporting.
+- Fixed memory leak in HTTP client.
+- Build [dependencies](https://github.com/xmrig/xmrig-deps/releases/tag/v4.1) updated to recent versions.
+
 # v5.10.1
 - [#1306](https://github.com/xmrig/xmrig/issues/1306) Fixed possible double connection to a pool.
 - [#1654](https://github.com/xmrig/xmrig/issues/1654) Fixed build with LibreSSL.

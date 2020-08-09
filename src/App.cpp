@@ -5,8 +5,8 @@
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
- * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2020 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2020 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -30,10 +30,10 @@
 #include "App.h"
 #include "base/io/Console.h"
 #include "base/io/log/Log.h"
-#include "base/kernel/Signals.h"
+#include "base/io/log/Tags.h"
+#include "base/io/Signals.h"
 #include "core/config/Config.h"
 #include "core/Controller.h"
-#include "proxy/Proxy.h"
 #include "Summary.h"
 #include "version.h"
 
@@ -79,7 +79,7 @@ int xmrig::App::exec()
     Summary::print(m_controller);
 
     if (m_controller->config()->isDryRun()) {
-        LOG_NOTICE("OK");
+        LOG_NOTICE("%s " WHITE_BOLD("OK"), Tags::config());
 
         return 0;
     }
@@ -95,47 +95,12 @@ int xmrig::App::exec()
 
 void xmrig::App::onConsoleCommand(char command)
 {
-    switch (command) {
-#   ifdef APP_DEVEL
-    case 's':
-    case 'S':
-        m_controller->proxy()->printState();
-        break;
-#   endif
-
-    case 'v':
-    case 'V':
-        m_controller->config()->toggleVerbose();
-        LOG_NOTICE("verbose: %d", m_controller->config()->isVerbose());
-        break;
-
-    case 'h':
-    case 'H':
-        m_controller->proxy()->printHashrate();
-        break;
-
-    case 'c':
-    case 'C':
-        m_controller->proxy()->printConnections();
-        break;
-
-    case 'd':
-    case 'D':
-        m_controller->proxy()->toggleDebug();
-        break;
-
-    case 'w':
-    case 'W':
-        m_controller->proxy()->printWorkers();
-        break;
-
-    case 3:
-        LOG_WARN("Ctrl+C received, exiting");
+    if (command == 3) {
+        LOG_WARN("%s " YELLOW("Ctrl+C received, exiting"), Tags::signal());
         close();
-        break;
-
-    default:
-        break;
+    }
+    else {
+        m_controller->execCommand(command);
     }
 }
 
@@ -145,15 +110,15 @@ void xmrig::App::onSignal(int signum)
     switch (signum)
     {
     case SIGHUP:
-        LOG_WARN("SIGHUP received, exiting");
+        LOG_WARN("%s " YELLOW("SIGHUP received, exiting"), Tags::signal());
         break;
 
     case SIGTERM:
-        LOG_WARN("SIGTERM received, exiting");
+        LOG_WARN("%s " YELLOW("SIGTERM received, exiting"), Tags::signal());
         break;
 
     case SIGINT:
-        LOG_WARN("SIGINT received, exiting");
+        LOG_WARN("%s " YELLOW("SIGINT received, exiting"), Tags::signal());
         break;
 
     default:
