@@ -27,10 +27,11 @@
 #define XMRIG_DAEMONCLIENT_H
 
 
+#include "base/kernel/interfaces/IHttpListener.h"
 #include "base/kernel/interfaces/ITimerListener.h"
-#include "base/net/http/HttpListener.h"
 #include "base/net/stratum/BaseClient.h"
 #include "base/tools/Object.h"
+#include "base/tools/cryptonote/BlockTemplate.h"
 
 
 #include <memory>
@@ -83,12 +84,17 @@ private:
     } m_apiVersion = API_MONERO;
 
     std::shared_ptr<IHttpListener> m_httpListener;
-    String m_blocktemplate;
+    String m_currentJobId;
+    String m_blocktemplateStr;
     String m_blockhashingblob;
     String m_prevHash;
     String m_tlsFingerprint;
     String m_tlsVersion;
     Timer *m_timer;
+    uint64_t m_blocktemplateRequestHeight = 0;
+    String m_blocktemplateRequestHash;
+
+    BlockTemplate m_blocktemplate;
 };
 
 

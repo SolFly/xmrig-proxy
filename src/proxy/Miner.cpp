@@ -5,8 +5,8 @@
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
- * Copyright 2018-2020 SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2020 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2021 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2021 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
 #include "base/io/log/Log.h"
 #include "base/net/stratum/Job.h"
 #include "base/net/tools/NetBuffer.h"
-#include "base/tools/Buffer.h"
+#include "base/tools/Cvt.h"
 #include "base/tools/Chrono.h"
 #include "base/tools/Handle.h"
 #include "net/JobResult.h"
@@ -65,7 +65,7 @@ namespace xmrig {
 
 xmrig::Miner::Miner(const TlsContext *ctx, uint16_t port, bool strictTls) :
     m_strictTls(strictTls),
-    m_rpcId(Buffer::randomBytes(8).toHex()),
+    m_rpcId(Cvt::toHex(Cvt::randomBytes(8))),
     m_tlsCtx(ctx),
     m_id(++nextId),
     m_localPort(port),
@@ -130,7 +130,7 @@ void xmrig::Miner::forwardJob(const Job &job, const char *algo)
     m_diff = job.diff();
     setFixedByte(job.fixedByte());
 
-    sendJob(job.rawBlob(), job.id().data(), job.rawTarget(), algo ? algo : job.algorithm().shortName(), job.height(), job.rawSeedHash());
+    sendJob(job.rawBlob(), job.id().data(), job.rawTarget(), algo ? algo : job.algorithm().shortName(), job.height(), job.rawSeedHash(), job.rawSigKey());
 }
 
 
@@ -140,7 +140,7 @@ void xmrig::Miner::replyWithError(int64_t id, const char *message)
 }
 
 
-void xmrig::Miner::setJob(Job &job)
+void xmrig::Miner::setJob(Job &job, int64_t extra_nonce)
 {
     using namespace rapidjson;
 
@@ -154,12 +154,31 @@ void xmrig::Miner::setJob(Job &job)
 
     if (m_customDiff && m_customDiff < m_diff) {
         const uint64_t t = 0xFFFFFFFFFFFFFFFFULL / m_customDiff;
-        Buffer::toHex(reinterpret_cast<const unsigned char *>(&t) + 4, 4, m_sendBuf);
-        m_sendBuf[8] = '\0';
+        Cvt::toHex(m_sendBuf, 9, reinterpret_cast<const uint8_t *>(&t) + 4, 4);
         customDiff = true;
     }
 
-    sendJob(job.rawBlob(), job.id().data(), customDiff ? m_sendBuf : job.rawTarget(), job.algorithm().shortName(), job.height(), job.rawSeedHash());
+    const char* blob = job.rawBlob();
+    String tmp_blob;
+
+    if (job.hasMinerSignature()) {
+        job.generateSignatureData(m_signatureData);
+    }
+    else if (!job.rawSigKey().isNull()) {
+        m_signatureData = job.rawSigKey();
+    }
+
+    if (extra_nonce >= 0) {
+        m_extraNonce = extra_nonce;
+        job.setExtraNonceInMinerTx(static_cast<uint32_t>(m_extraNonce));
+    }
+
+    if (job.hasMinerSignature() || (extra_nonce >= 0)) {
+        job.generateHashingBlob(tmp_blob);
+        blob = tmp_blob;
+    }
+
+    sendJob(blob, job.id().data(), customDiff ? m_sendBuf : job.rawTarget(), job.algorithm().shortName(), job.height(), job.rawSeedHash(), m_signatureData);
 }
 
 
@@ -231,7 +250,7 @@ bool xmrig::Miner::parseRequest(int64_t id, const char *method, const rapidjson:
 
         Algorithm algorithm(Json::getString(params, "algo"));
 
-        SubmitEvent *event = SubmitEvent::create(this, id, Json::getString(params, "job_id"), Json::getString(params, "nonce"), Json::getString(params, "result"), algorithm);
+        SubmitEvent *event = SubmitEvent::create(this, id, Json::getString(params, "job_id"), Json::getString(params, "nonce"), Json::getString(params, "result"), algorithm, Json::getString(params, "sig"), m_signatureData, m_extraNonce);
 
         if (!event->request.isValid() || event->request.actualDiff() < diff()) {
             event->reject(Error::LowDifficulty);
@@ -421,7 +440,7 @@ void xmrig::Miner::send(int size)
 }
 
 
-void xmrig::Miner::sendJob(const char *blob, const char *jobId, const char *target, const char *algo, uint64_t height, const String &seedHash)
+void xmrig::Miner::sendJob(const char *blob, const char *jobId, const char *target, const char *algo, uint64_t height, const String &seedHash, const String &signatureKey)
 {
     using namespace rapidjson;
 
@@ -440,6 +459,12 @@ void xmrig::Miner::sendJob(const char *blob, const char *jobId, const char *targ
 
     if (!seedHash.isNull()) {
         params.AddMember("seed_hash", seedHash.toJSON(), allocator);
+    }
+
+    if (!signatureKey.isNull()) {
+        // Skip tx_pubkey (first 32 bytes) because client doesn't need it for signing
+        const char *key = signatureKey.size() == 192 ? (signatureKey.data() + 64) : signatureKey.data();
+        params.AddMember("sig_key", Value(key, allocator), allocator);
     }
 
     doc.AddMember("jsonrpc", "2.0", allocator);

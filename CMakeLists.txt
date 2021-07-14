@@ -51,6 +51,9 @@ set(HEADERS
     src/proxy/Server.h
     src/proxy/splitters/donate/DonateMapper.h
     src/proxy/splitters/donate/DonateSplitter.h
+    src/proxy/splitters/extra_nonce/ExtraNonceMapper.h
+    src/proxy/splitters/extra_nonce/ExtraNonceSplitter.h
+    src/proxy/splitters/extra_nonce/ExtraNonceStorage.h
     src/proxy/splitters/nicehash/NonceMapper.h
     src/proxy/splitters/nicehash/NonceSplitter.h
     src/proxy/splitters/nicehash/NonceStorage.h
@@ -93,6 +96,9 @@ set(SOURCES
     src/proxy/Server.cpp
     src/proxy/splitters/donate/DonateMapper.cpp
     src/proxy/splitters/donate/DonateSplitter.cpp
+    src/proxy/splitters/extra_nonce/ExtraNonceMapper.cpp
+    src/proxy/splitters/extra_nonce/ExtraNonceSplitter.cpp
+    src/proxy/splitters/extra_nonce/ExtraNonceStorage.cpp
     src/proxy/splitters/nicehash/NonceMapper.cpp
     src/proxy/splitters/nicehash/NonceSplitter.cpp
     src/proxy/splitters/nicehash/NonceStorage.cpp
@@ -121,8 +127,9 @@ elseif (APPLE)
         src/App_unix.cpp
         )
 
-    find_library(CFLIB CoreFoundation)
-    set(EXTRA_LIBS ${CFLIB})
+    find_library(IOKIT_LIBRARY IOKit)
+    find_library(CORESERVICES_LIBRARY CoreServices)
+    set(EXTRA_LIBS ${IOKIT_LIBRARY} ${CORESERVICES_LIBRARY})
 else()
     set(SOURCES_OS
         "${SOURCES_OS}"
@@ -146,6 +153,7 @@ add_definitions(/DXMRIG_ALGO_RANDOMX)
 add_definitions(/DXMRIG_ALGO_CN_LITE)
 add_definitions(/DXMRIG_ALGO_CN_HEAVY)
 add_definitions(/DXMRIG_ALGO_CN_PICO)
+add_definitions(/DXMRIG_ALGO_CN_FEMTO)
 add_definitions(/DXMRIG_ALGO_ARGON2)
 add_definitions(/DXMRIG_ALGO_ASTROBWT)
 
