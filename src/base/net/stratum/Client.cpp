@@ -612,6 +612,22 @@ bool xmrig::Client::parseLogin(const rapidjson::Value &result, int *code)
 }
 
 
+bool xmrig::Client::parseGetjob(const rapidjson::Value &result, int *code)
+{
+    setRpcId(Json::getString(result, "id"));
+    if (m_rpcId.isNull()) {
+        *code = 1;
+        return false;
+    }
+
+    parseExtensions(result);
+
+    const bool rc = parseJob(result, code);
+
+    return rc;
+}
+
+
 void xmrig::Client::login()
 {
     using namespace rapidjson;
@@ -624,6 +640,8 @@ void xmrig::Client::login()
     params.AddMember("login", m_user.toJSON(),     allocator);
     params.AddMember("pass",  m_password.toJSON(), allocator);
     params.AddMember("agent", StringRef(m_agent),  allocator);
+    params.AddMember("algo", algos_toJSON(doc),    allocator);
+    params.AddMember("algo-perf", algo_perfs_toJSON(doc), allocator);
 
     if (!m_rigId.isNull()) {
         params.AddMember("rigid", m_rigId.toJSON(), allocator);
@@ -632,6 +650,26 @@ void xmrig::Client::login()
     m_listener->onLogin(this, doc, params);
 
     JsonRequest::create(doc, 1, "login", params);
+
+    send(doc);
+}
+
+
+void xmrig::Client::getjob()
+{
+    using namespace rapidjson;
+
+    if (!m_rpcId) return;
+
+    Document doc(kObjectType);
+    auto &allocator = doc.GetAllocator();
+
+    Value params(kObjectType);
+    params.AddMember("id", StringRef(m_rpcId.data()), allocator);
+    params.AddMember("algo", algos_toJSON(doc), allocator);
+    params.AddMember("algo-perf", algo_perfs_toJSON(doc), allocator);
+
+    JsonRequest::create(doc, 1, "getjob", params);
 
     send(doc);
 }
@@ -672,7 +710,7 @@ void xmrig::Client::parse(char *line, size_t len)
     rapidjson::Document doc;
     if (doc.ParseInsitu(line).HasParseError()) {
         if (!isQuiet()) {
-            LOG_ERR("%s " RED("JSON decode failed: ") RED_BOLD("\"%s\""), tag(), rapidjson::GetParseError_En(doc.GetParseError()));
+            LOG_ERR("%s " RED("JSON decode failed: ") RED_BOLD("\"%s\": %s"), tag(), rapidjson::GetParseError_En(doc.GetParseError()), line);
         }
 
         return;
@@ -811,7 +849,15 @@ void xmrig::Client::parseResponse(int64_t id, const rapidjson::Value &result, co
         const char *message = error["message"].GetString();
 
         if (!handleSubmitResponse(id, message) && !isQuiet()) {
-            LOG_ERR("%s " RED("error: ") RED_BOLD("\"%s\"") RED(", code: ") RED_BOLD("%d"), tag(), message, Json::getInt(error, "code"));
+            using namespace rapidjson;
+            Document doc(kObjectType);
+            StringBuffer buffer1(nullptr, 512), buffer2(nullptr, 512);
+            Writer<StringBuffer> writer1(buffer1), writer2(buffer2);
+            algos_toJSON(doc).Accept(writer1);
+            algo_perfs_toJSON(doc).Accept(writer2);
+
+            LOG_ERR("%s " RED("error: ") RED_BOLD("\"%s\"") RED(", code: ") RED_BOLD("%d") " with %s algo and %s algo_perf",
+                    tag(), message, Json::getInt(error, "code"), buffer1.GetString(), buffer2.GetString());
         }
 
         if (m_id == 1 || isCriticalError(message)) {
@@ -827,6 +873,10 @@ void xmrig::Client::parseResponse(int64_t id, const rapidjson::Value &result, co
 
     if (id == 1) {
         int code = -1;
+        if (parseGetjob(result, &code)) {
+            m_listener->onJobReceived(this, m_job, result);
+            return;
+        }
         if (!parseLogin(result, &code)) {
             if (!isQuiet()) {
                 LOG_ERR("%s " RED("login error code: ") RED_BOLD("%d"), tag(), code);

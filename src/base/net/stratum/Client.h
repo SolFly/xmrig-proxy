@@ -36,6 +36,7 @@
 #include "base/net/tools/LineReader.h"
 #include "base/net/tools/Storage.h"
 #include "base/tools/Object.h"
+#include "base/net/stratum/AlgoSwitch.h"
 
 
 using BIO = struct bio_st;
@@ -49,7 +50,7 @@ class IClientListener;
 class JobResult;
 
 
-class Client : public BaseClient, public IDnsListener, public ILineListener
+class Client : public BaseClient, public IDnsListener, public ILineListener, public AlgoSwitch
 {
 public:
     XMRIG_DISABLE_COPY_MOVE_DEFAULT(Client)
@@ -73,6 +74,11 @@ protected:
     void connect(const Pool &pool) override;
     void deleteLater() override;
     void tick(uint64_t now) override;
+    void set_algo_perf_same_threshold(uint64_t percent) { AlgoSwitch::set_algo_perf_same_threshold(percent); }
+    bool try_miner(const Miner* miner, int upstream_count) override { return AlgoSwitch::try_miner(miner, upstream_count); }
+    void add_miner(const Miner* miner) override { AlgoSwitch::add_miner(miner); getjob(); }
+    void del_miner(const Miner* miner) override { AlgoSwitch::del_miner(miner); getjob(); }
+    void setPool(const Pool &pool) override { BaseClient::setPool(pool); setDefaultAlgoSwitchAlgo(pool.algorithm()); }
 
     void onResolved(const DnsRecords &records, int status, const char *error) override;
 
@@ -87,7 +93,9 @@ protected:
     inline void setPoolUrl(const char *url)                                 { m_pool.setUrl(url); }
 
     virtual bool parseLogin(const rapidjson::Value &result, int *code);
+    virtual bool parseGetjob(const rapidjson::Value &result, int *code);
     virtual void login();
+    virtual void getjob();
     virtual void parseNotification(const char* method, const rapidjson::Value& params, const rapidjson::Value& error);
 
     bool close();

@@ -120,6 +120,7 @@ static inline const std::string &usage()
     u += "  -c, --config=FILE             load a JSON-format configuration file\n";
     u += "  -B, --background              run the proxy in the background\n";
     u += "  -V, --version                 output version information and exit\n";
+    u += "  --algo-perf-same-threshold=N  algo perf threshold in percent that proxy uses to group miners into one upstream\n";
     u += "  -h, --help                    display this help and exit\n";
     u += "      --dry-run                 test configuration and exit\n";
 
